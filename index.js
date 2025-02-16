@@ -170,7 +170,7 @@ client.on("ready", async () => {
     await addReactions(techMessage, techStrengths);
     await addReactions(businessMessage, businessStrengths);
     await addReactions(hyrbridMessage, hybridStrengths);
-
+    await addReactions(verifMessage, {"✅": "Check"});
 
     console.log("Reactions added");
   } catch (error) {
@@ -220,6 +220,7 @@ async function getParticipants() {
 
 // ------ reaction to verification post ------
 client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.bot) return;
   if (reaction.partial) await reaction.fetch(); // fetch if the reaction is partial
 
   if (
