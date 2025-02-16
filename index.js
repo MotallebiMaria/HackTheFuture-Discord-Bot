@@ -45,10 +45,12 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-const PARTICIPANT_ROLE_ID = "1329953543708475443";
 const GUILD_ID = "1329940953418563686";
+
 const VERIFICATION_CHANNEL_ID = "1329952372981502074";
 const VERIFICATION_MESSAGE_ID = "1329956243804127342";
+const PARTICIPANT_ROLE_ID = "1329953543708475443";
+
 const REACTION_ROLES_CHANNEL_ID = "1339733893993074759";
 const PRONOUNS_MESSAGET_ID = "1340407438691536926";
 const YEAR_MESSAGE_ID = "1340407439484518545";
@@ -66,6 +68,11 @@ const YEAR5_ROLE_ID = "1339735186635493416";
 const CS_ROLE_ID = "1330354765758205982";
 const BUSINESS_ROLE_ID = "1330355822357778503";
 
+const STRENGTHS_CHANNEL_ID = "1340553298801066056";
+const TECH_MESSAGE_ID = "1340559235230208031";
+const BUSINESS_MESSAGE_ID = "1340559237075439647";
+const HYBRID_MESSAGE_ID = "1340559237780209736";
+
 const pronounRoles = {
   "💛": SHE_ROLE_ID,
   "💚": HE_ROLE_ID,
@@ -73,7 +80,6 @@ const pronounRoles = {
   "🤷": ANY_ROLE_ID,
   "❓": ASK_ROLE_ID,
 };
-
 const yearRoles = {
   "1️⃣": YEAR1_ROLE_ID,
   "2️⃣": YEAR2_ROLE_ID,
@@ -81,11 +87,42 @@ const yearRoles = {
   "4️⃣": YEAR4_ROLE_ID,
   "🧓": YEAR5_ROLE_ID,
 };
-
 const fieldRoles = {
   "💻": CS_ROLE_ID,
   "💼": BUSINESS_ROLE_ID,
 };
+
+const techStrengths = {
+  "👨‍💻": "Software Development / Engineering",
+  "⚙️": "Backend Development",
+  "🌐": "Frontend / Web Development",
+  "📱": "Mobile Development",
+  "💻": "DevOps / Cloud Engineering",
+  "🔒": "Cybersecurity",
+  "🤖": "AI / Machine Learning",
+  "📊": "Data Science / Analytics",
+  "🧠": "Natural Language Processing",
+  "📡": "Networking / Distributed Systems",
+  "🖥️": "UI/UX Design",
+}
+const businessStrengths = {
+  "💡": "Product Management",
+  "📈": "Business Analysis / Strategy",
+  "💼": "Entrepreneurship",
+  "🔍": "Market Research",
+  "💬": "Marketing / PR",
+  "📊": "Data Analytics / Business Intelligence",
+  "💵": "Finance",
+  "🧑‍💼": "Consulting",
+  "🔧": "Operations / Logistics",
+}
+const hybridStrengths = {
+  "🛠️": "Full-Stack Development",
+  "🎨": "UI/UX / Design Thinking",
+  "🔗": "Integrations / APIs",
+  "🧑‍💻": "Tech + Business Strategy",
+  "🚀": "Startup / Growth Hacking",
+}
 
 client.on("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -106,6 +143,15 @@ client.on("ready", async () => {
     const fieldMessage = await client.channels.cache
       .get(REACTION_ROLES_CHANNEL_ID)
       .messages.fetch(FIELD_MESSAGE_ID);
+    const techMessage = await client.channels.cache
+      .get(STRENGTHS_CHANNEL_ID)
+      .messages.fetch(TECH_MESSAGE_ID);
+    const businessMessage = await client.channels.cache
+      .get(STRENGTHS_CHANNEL_ID)
+      .messages.fetch(BUSINESS_MESSAGE_ID);
+    const hyrbridMessage = await client.channels.cache
+      .get(STRENGTHS_CHANNEL_ID)
+      .messages.fetch(HYBRID_MESSAGE_ID);
 
     async function addReactions(message, reactions) {
       for (const emoji of Object.keys(reactions)) {
@@ -118,6 +164,9 @@ client.on("ready", async () => {
     await addReactions(pronounsMessage, pronounRoles);
     await addReactions(yearMessage, yearRoles);
     await addReactions(fieldMessage, fieldRoles);
+    await addReactions(techMessage, techStrengths);
+    await addReactions(businessMessage, businessStrengths);
+    await addReactions(hyrbridMessage, hybridStrengths);
 
     console.log("Reactions added");
   } catch (error) {
@@ -212,7 +261,7 @@ async function updateParticipant(participant, discordID) {
   const sheetsResponse = await sheets.spreadsheets.values.get({
     auth: authClient,
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A1:F", // adjust range as needed
+    range: "Sheet1!A1:F",
   });
 
   const rows = sheetsResponse.data.values || [];
@@ -507,7 +556,7 @@ async function markAsTaken(emails, teamCount) {
     const sheetsResponse = await sheets.spreadsheets.values.get({
       auth: authClient,
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A1:F", // adjust range as needed
+      range: "Sheet1!A1:F",
     });
 
     const rows = sheetsResponse.data.values || [];
@@ -516,7 +565,7 @@ async function markAsTaken(emails, teamCount) {
     // update status & format rows for "Taken" participants
     for (let i = 1; i < rows.length; i++) {
       // start from row 2
-      const participantEmail = rows[i][2]; // email in column 3
+      const participantEmail = rows[i][2]; // column C
       if (emails.includes(participantEmail)) {
         // add a request to update the status column
         requests.push({
@@ -563,13 +612,13 @@ async function markAsTaken(emails, teamCount) {
                 },
               },
             },
-            fields: "userEnteredFormat.backgroundColor", // only update background color
+            fields: "userEnteredFormat.backgroundColor",
           },
         });
       }
     }
 
-    // update spreadsheet with new team count, status, formatting
+    // update spreadsheet
     await sheets.spreadsheets.batchUpdate({
       auth: authClient,
       spreadsheetId: SPREADSHEET_ID,
@@ -581,5 +630,127 @@ async function markAsTaken(emails, teamCount) {
     console.log("Spreadsheet updated with team information, count, formatting");
   } catch (error) {
     console.error("Error updating spreadsheet with team information:", error);
+  }
+}
+
+// ------ get strengths on Discord ------
+client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch(); // fetch if reaction is partial
+
+  const member = await reaction.message.guild.members.fetch(user.id);
+  const emoji_ = reaction.emoji.name;
+
+  if (
+    reaction.message.id === TECH_MESSAGE_ID ||
+    reaction.message.id === BUSINESS_MESSAGE_ID ||
+    reaction.message.id === HYBRID_MESSAGE_ID
+  ) {
+    if (!member.roles.cache.has(PARTICIPANT_ROLE_ID)) {
+      console.log(
+        `Tried to react ${emoji_} to strength post but is not a participant: ${user.tag}`,
+      );
+      await reaction.users.remove(user.id);
+      return;
+    }
+
+    let strength = "";
+
+    if (reaction.message.id === TECH_MESSAGE_ID) {
+      strength = techStrengths[emoji_];
+    } else if (reaction.message.id === BUSINESS_MESSAGE_ID) {
+      strength = businessStrengths[emoji_];
+    } else if (reaction.message.id === HYBRID_MESSAGE_ID) {
+      strength = hybridStrengths[emoji_];
+    }
+
+    if (strength) {
+      console.log(`Reacted ${emoji_} to strengths post: ${user.tag}`);
+      await updateStrengthsInSpreadsheet(user.id, strength, true);
+    }
+  }
+});
+
+client.on("messageReactionRemove", async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch(); // fetch if reaction is partial
+
+  const member = await reaction.message.guild.members.fetch(user.id);
+  const emoji_ = reaction.emoji.name;
+
+  if (
+    reaction.message.id === TECH_MESSAGE_ID ||
+    reaction.message.id === BUSINESS_MESSAGE_ID ||
+    reaction.message.id === HYBRID_MESSAGE_ID
+  ) {
+    if (!member.roles.cache.has(PARTICIPANT_ROLE_ID)) {
+      await reaction.users.remove(user.id);
+      return;
+    }
+
+    let strength = "";
+
+    if (reaction.message.id === TECH_MESSAGE_ID) {
+      strength = techStrengths[emoji_];
+    } else if (reaction.message.id === BUSINESS_MESSAGE_ID) {
+      strength = businessStrengths[emoji_];
+    } else if (reaction.message.id === HYBRID_MESSAGE_ID) {
+      strength = hybridStrengths[emoji_];
+    }
+
+    if (strength) {
+      console.log(`Removed ${emoji_} from strengths post: ${user.tag}`);
+      await updateStrengthsInSpreadsheet(user.id, strength, false);
+    }
+  }
+});
+
+// ------ update strengths in spreadsheet ------
+async function updateStrengthsInSpreadsheet(discordID, strength, add) {
+  try {
+    const authClient = await auth.getClient();
+
+    // fetch current data from spreadsheet
+    const sheetsResponse = await sheets.spreadsheets.values.get({
+      auth: authClient,
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Sheet1!A1:F",
+    });
+
+    const rows = sheetsResponse.data.values || [];
+    const rowIndex = rows.findIndex((row) => row[3] === discordID); // column D
+
+    if (rowIndex === -1) {
+      throw new Error("Participant not found in spreadsheet.");
+    }
+
+    // get current strengths
+    const currentStrengths = rows[rowIndex][4] || ""; // column E
+    let updatedStrengths = currentStrengths.split("\n").filter((s) => s !== "");
+
+    if (add) {
+      const bulletStrength = `• ${strength}`;
+      if (!updatedStrengths.includes(bulletStrength)) {
+        updatedStrengths.push(bulletStrength);
+      }
+    } else {
+      const bulletStrength = `• ${strength}`;
+      updatedStrengths = updatedStrengths.filter((s) => s !== bulletStrength);
+    }
+
+    // update strengths in spreadsheet
+    await sheets.spreadsheets.values.update({
+      auth: authClient,
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Sheet1!E${rowIndex + 1}`,
+      valueInputOption: "RAW",
+      resource: {
+        values: [[updatedStrengths.join("\n")]],
+      },
+    });
+
+    console.log(`Updated strengths for ${discordID}`);
+  } catch (error) {
+    console.error("Error updating strengths in spreadsheet:", error);
   }
 }
