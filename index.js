@@ -4,18 +4,21 @@ require('dotenv').config();
 const { google } = require("googleapis");
 const sheets = google.sheets("v4");
 const forms = google.forms("v1");
-
-// decode base64-encoded service account key
-const SERVICE_ACCOUNT_KEY_BASE64 = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-const SERVICE_ACCOUNT_KEY_JSON = Buffer.from(SERVICE_ACCOUNT_KEY_BASE64, 'base64').toString('utf-8');
-const SERVICE_ACCOUNT_KEY = JSON.parse(SERVICE_ACCOUNT_KEY_JSON);
+const fs = require('fs');
 
 const SPREADSHEET_ID = "1qg8FDjb5CQRXmxLGDqsNEpZgKuMbNs-Rl4WlABLl4kI";
 const FORM_ID = "1u_tpeaz8Z8W5sZaxwqoCu8bTbhkBRQUg82E7lXG90IE";
 const FORM_SHEET_ID = "1WJwyPkdE4Lif_eL4B4Vdp61hgLA3HlCjSIO8zOwuNTM";
 
+const keyFilePath = './googleServiceAccountKey.json';
+
+// decode base64-encoded service account key
+const decodedKey = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_KEY, 'base64').toString('utf-8');
+fs.writeFileSync(keyFilePath, decodedKey, 'utf-8');
+console.log('Service account key has been written to the file.');
+
 const auth = new google.auth.GoogleAuth({
-  credentials: SERVICE_ACCOUNT_KEY,
+  keyFile: keyFilePath,
   scopes: [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/forms.responses.readonly",
