@@ -47,12 +47,12 @@ const client = new Client({
 
 const GUILD_ID = "1329940953418563686";
 
-const VERIFICATION_CHANNEL_ID = "1329952372981502074";
-const VERIFICATION_MESSAGE_ID = "1329956243804127342";
+const VERIFICATION_CHANNEL_ID = "1329940953875874006";
+const VERIFICATION_MESSAGE_ID = "1340594040944463884";
 const PARTICIPANT_ROLE_ID = "1329953543708475443";
 
 const REACTION_ROLES_CHANNEL_ID = "1339733893993074759";
-const PRONOUNS_MESSAGET_ID = "1340407438691536926";
+const PRONOUNS_MESSAGE_ID = "1340407438691536926";
 const YEAR_MESSAGE_ID = "1340407439484518545";
 const FIELD_MESSAGE_ID = "1340407440738488421";
 const SHE_ROLE_ID = "1339735258207096852";
@@ -134,9 +134,12 @@ client.on("ready", async () => {
 
   // add reaction roles to their posts
   try {
+    const verifMessage = await client.channels.cache
+    .get(VERIFICATION_CHANNEL_ID)
+    .messages.fetch(VERIFICATION_MESSAGE_ID);
     const pronounsMessage = await client.channels.cache
       .get(REACTION_ROLES_CHANNEL_ID)
-      .messages.fetch(PRONOUNS_MESSAGET_ID);
+      .messages.fetch(PRONOUNS_MESSAGE_ID);
     const yearMessage = await client.channels.cache
       .get(REACTION_ROLES_CHANNEL_ID)
       .messages.fetch(YEAR_MESSAGE_ID);
@@ -167,6 +170,7 @@ client.on("ready", async () => {
     await addReactions(techMessage, techStrengths);
     await addReactions(businessMessage, businessStrengths);
     await addReactions(hyrbridMessage, hybridStrengths);
+
 
     console.log("Reactions added");
   } catch (error) {
@@ -394,7 +398,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
   const member = await reaction.message.guild.members.fetch(user.id);
   const emoji_ = reaction.emoji.name;
 
-  if (reaction.message.id === PRONOUNS_MESSAGET_ID) {
+  if (reaction.message.id === PRONOUNS_MESSAGE_ID) {
     console.log(`Reacted ${emoji_} to pronouns post: ${user.tag}`);
     if (pronounRoles[emoji_]) {
       await member.roles.add(pronounRoles[emoji_]);
@@ -440,7 +444,7 @@ client.on("messageReactionRemove", async (reaction, user) => {
   const member = await reaction.message.guild.members.fetch(user.id);
   const emoji_ = reaction.emoji.name;
 
-  if (reaction.message.id === PRONOUNS_MESSAGET_ID) {
+  if (reaction.message.id === PRONOUNS_MESSAGE_ID) {
     console.log(`Removed ${emoji_} from pronouns post: ${user.tag}`);
     if (pronounRoles[emoji_]) {
       await member.roles.remove(pronounRoles[emoji_]);
