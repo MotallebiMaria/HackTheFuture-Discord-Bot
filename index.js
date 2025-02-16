@@ -587,7 +587,7 @@ async function markAsTaken(emails, teamCount) {
                 values: [
                   {
                     userEnteredValue: {
-                      stringValue: `Taken (team #${teamCount})`, // update status w/ team number
+                      stringValue: `Taken (team #${teamCount - 1})`, // update status w/ team number
                     },
                   },
                 ],
