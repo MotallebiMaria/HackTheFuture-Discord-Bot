@@ -1,28 +1,35 @@
-// ------ Firebase setup ------
-require("dotenv").config();
-const admin = require("firebase-admin");
-const fs = require('fs');
+require('dotenv').config();
 
-if (process.env.SERVICE_ACCOUNT_KEY) {
-  const keyFilePath = './serviceAccountKey.json';
-  
-  // decode base64 write it to a file
-  const decodedKey = Buffer.from(process.env.SERVICE_ACCOUNT_KEY, 'base64').toString('utf-8');
-  fs.writeFileSync(keyFilePath, decodedKey, 'utf-8');
-  console.log('Service account key has been written to the file.');
-  
-  // initialize Firebase Admin SDK
-  const admin = require('firebase-admin');
-  admin.initializeApp({
-    credential: admin.credential.cert(keyFilePath),
-  });
-} else {
-  console.log("SERVICE_ACCOUNT_KEY environment variable is not set.");
-}
+// ------ Google setup ------
+const { google } = require("googleapis");
+const sheets = google.sheets("v4");
+const forms = google.forms("v1");
+
+// decode base64-encoded service account key
+const SERVICE_ACCOUNT_KEY_BASE64 = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+const SERVICE_ACCOUNT_KEY_JSON = Buffer.from(SERVICE_ACCOUNT_KEY_BASE64, 'base64').toString('utf-8');
+const SERVICE_ACCOUNT_KEY = JSON.parse(SERVICE_ACCOUNT_KEY_JSON);
+
+const SPREADSHEET_ID = "1qg8FDjb5CQRXmxLGDqsNEpZgKuMbNs-Rl4WlABLl4kI";
+const FORM_ID = "1u_tpeaz8Z8W5sZaxwqoCu8bTbhkBRQUg82E7lXG90IE";
+const FORM_SHEET_ID = "1WJwyPkdE4Lif_eL4B4Vdp61hgLA3HlCjSIO8zOwuNTM";
+
+const auth = new google.auth.GoogleAuth({
+  credentials: SERVICE_ACCOUNT_KEY,
+  scopes: [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/forms.responses.readonly",
+  ],
+});
 
 // ------ Discord setup ------
-
-const { Client, GatewayIntentBits, Partials, heading, ActivityType} = require("discord.js");
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  heading,
+  ActivityType,
+} = require("discord.js");
 
 const client = new Client({
   intents: [
@@ -83,7 +90,7 @@ client.on("ready", async () => {
   client.user.setActivity({
     name: "Hacking the future...",
     type: ActivityType.Custom,
-  }); 
+  });
 
   // add reaction roles to their posts
   try {
@@ -113,12 +120,49 @@ client.on("ready", async () => {
   } catch (error) {
     console.error("Error fetching messages or adding reactions:", error);
   }
+
+  // start checking for form submissions every 30 seconds
+  setInterval(async () => {
+    try {
+      await processFormSubmissions();
+      console.log("Checked for new form submissions.");
+    } catch (error) {
+      console.error("Error processing form submissions:", error);
+    }
+  }, 15 * 1000); // 15 s
 });
 
 client.login(process.env.BOT_TOKEN);
 
-// ------ reaction to verification message ------
+// ------ selected participant data (for verification) ------
+async function getParticipants() {
+  const authClient = await auth.getClient();
 
+  const sheetsResponse = await sheets.spreadsheets.values.get({
+    auth: authClient,
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A1:F",
+  });
+
+  const rows = sheetsResponse.data.values || [];
+  const participants = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const [firstName, lastName, email, discordID, strengths, status] = rows[i];
+    participants.push({
+      firstName,
+      lastName,
+      email: email.toLowerCase().trim(),
+      discordID,
+      strengths,
+      status,
+    });
+  }
+
+  return participants;
+}
+
+// ------ reaction to verification post ------
 client.on("messageReactionAdd", async (reaction, user) => {
   if (reaction.partial) await reaction.fetch(); // fetch if the reaction is partial
 
@@ -132,21 +176,12 @@ client.on("messageReactionAdd", async (reaction, user) => {
     const member = reaction.message.guild.members.cache.get(user.id);
     if (member) {
       try {
-        const participantsRef = db.ref("participants");
-        const snapshot = await participantsRef.once("value");
-        const participants = snapshot.val();
+        const participants = await getParticipants();
 
-        // check if discordID already in database
-        let alreadyVerified = false;
-        for (const key in participants) {
-          if (participants.hasOwnProperty(key)) {
-            const participantData = participants[key];
-            if (participantData.discordID === user.id) {
-              alreadyVerified = true;
-              break;
-            }
-          }
-        }
+        // check if discordID already in spreadsheet
+        const alreadyVerified = participants.some(
+          (participant) => participant.discordID === user.id,
+        );
 
         if (alreadyVerified) {
           await user.send(
@@ -160,129 +195,136 @@ client.on("messageReactionAdd", async (reaction, user) => {
           );
         }
       } catch (error) {
-        console.error("Error checking verification for ${user.tag}:", error);
+        console.error(`Error checking verification for ${user.tag}:`, error);
       }
     }
   }
 });
 
 // ------ handle verification messages ------
+async function updateParticipant(participant, discordID) {
+  const authClient = await auth.getClient();
+
+  // find row of participant
+  const sheetsResponse = await sheets.spreadsheets.values.get({
+    auth: authClient,
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A1:F", // adjust range as needed
+  });
+
+  const rows = sheetsResponse.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[2] === participant.email);
+
+  if (rowIndex === -1) {
+    throw new Error("Participant not found in spreadsheet.");
+  }
+
+  // update participant's discordID
+  await sheets.spreadsheets.values.update({
+    auth: authClient,
+    spreadsheetId: SPREADSHEET_ID,
+    range: `Sheet1!D${rowIndex + 1}`, // column D
+    valueInputOption: "RAW",
+    resource: {
+      values: [[discordID]],
+    },
+  });
+
+  // update participant's status
+  await sheets.spreadsheets.values.update({
+    auth: authClient,
+    spreadsheetId: SPREADSHEET_ID,
+    range: `Sheet1!F${rowIndex + 1}`, // column F
+    valueInputOption: "RAW",
+    resource: {
+      values: [["Available"]],
+    },
+  });
+}
 
 client.on("messageCreate", async (message) => {
   if (message.guild != null || message.author.id == client.user.id) return;
 
-  const email = message.content.trim();
+  const email = message.content.trim().toLowerCase();
   const discordID = message.author.id;
 
   console.log(message.author.tag, ' said "', email, '"');
 
   try {
-    const participantsRef = db.ref("participants");
-    const snapshot = await participantsRef.once("value");
-    const participants = snapshot.val();
+    const participants = await getParticipants();
 
     let foundEmail = false;
     let emailAlreadyVerified = false;
 
-    if (participants) {
-      for (const key in participants) {
-        if (participants.hasOwnProperty(key)) {
-          const participantData = participants[key];
-
-          // check if discordID already verified
-          if (participantData.discordID === discordID) {
-            await message.reply(
-              "🚫 You have already been verified. Please stop sending me messages. For any other inquiries, please reach out to the moderators.",
-            );
-            return;
-          }
-
-          // check if email exists & if it's verified
-          if (
-            participantData.email.toLowerCase().trim() ===
-            email.toLowerCase().trim()
-          ) {
-            // if email already verified, set the flag
-            if (participantData.discordID != "-") emailAlreadyVerified = true;
-            foundEmail = true;
-          }
-        }
-      }
-
-      if (emailAlreadyVerified) {
-        await message.reply("❌ This email has already been verified.");
-        return;
-      } else if (!foundEmail) {
+    for (const participant of participants) {
+      // check if discordID already verified
+      if (participant.discordID === discordID) {
         await message.reply(
-          "❌ Email not found in the database. Please ensure you’re using the email you registered with.",
+          "🚫 You have already been verified. Please stop sending me messages. For any other inquiries, please reach out to the moderators.",
         );
-      } else {
-        const guild = client.guilds.cache.get(GUILD_ID);
-        const member = guild.members.cache.get(discordID);
-
-        if (member) {
-          for (const key in participants) {
-            if (participants.hasOwnProperty(key)) {
-              const participantData = participants[key];
-
-              // find participant with matching email
-              if (
-                participantData.email.toLowerCase().trim() ===
-                email.toLowerCase().trim()
-              ) {
-                // update participant info in database
-                await participantsRef.child(key).update({
-                  discordID: discordID,
-                });
-
-                // construct new nickname
-                const firstName = participantData.firstName || "FirstName";
-                const lastName = participantData.lastName || "LastName";
-                const newNickname = `${firstName} ${lastName}`;
-
-                // change user's server nickname
-                try {
-                  await member.setNickname(newNickname);
-                  console.log(
-                    `Nickname updated to "${newNickname}" for ${member.user.tag}`,
-                  );
-                } catch (error) {
-                  console.error(
-                    `Failed to update nickname for ${member.user.tag}:`,
-                    error,
-                  );
-                }
-
-                // add role and send success message
-                await member.roles.add(PARTICIPANT_ROLE_ID);
-                // if (participantData.category == "CS") {
-                //   await member.roles.add(CS_ROLE_ID);
-                // } else {
-                //   await member.roles.add(RC_ROLE_ID);
-                // }
-                await message.reply(
-                  "✅ Your verification is complete! Welcome to the hackathon!",
-                );
-
-                console.log(
-                  "Verified: ",
-                  message.author.tag,
-                  ", email: ",
-                  email,
-                );
-                break;
-              }
-            }
-          }
-        } else {
-          await message.reply(
-            "❌ It seems like you are not a member of the Hack The Future server, or you have not recently reacted to the verification post. Please ensure you have joined the server using the link sent to your email, then try again by reacting to the verification post.",
-          );
-        }
+        return;
       }
+
+      // check if email exists & if it's verified
+      if (participant.email === email) {
+        // if email already verified, set the flag
+        if (participant.discordID !== "-") emailAlreadyVerified = true;
+        foundEmail = true;
+      }
+    }
+
+    if (emailAlreadyVerified) {
+      await message.reply("❌ This email has already been verified.");
+      return;
+    } else if (!foundEmail) {
+      await message.reply(
+        "❌ Email not found in the database. Please ensure you’re using the email you registered with.",
+      );
     } else {
-      console.log("No participants found in database.");
-      await message.reply("⚠️ An error occurred. No participants found.");
+      const guild = client.guilds.cache.get(GUILD_ID);
+      const member = guild.members.cache.get(discordID);
+
+      if (member) {
+        for (const participant of participants) {
+          // find participant with matching email
+          if (participant.email === email) {
+            // update participant info in the spreadsheet
+            await updateParticipant(participant, discordID);
+
+            // construct new nickname
+            const firstName = participant.firstName || "FirstName";
+            const lastName = participant.lastName || "LastName";
+            const newNickname = `${firstName} ${lastName}`;
+
+            // change user's server nickname
+            try {
+              await member.setNickname(newNickname);
+              console.log(
+                `Nickname updated to "${newNickname}" for ${member.user.tag}`,
+              );
+            } catch (error) {
+              console.error(
+                `Failed to update nickname for ${member.user.tag}:`,
+                error,
+              );
+            }
+
+            // add role and send success message
+            await member.roles.add(PARTICIPANT_ROLE_ID);
+            await message.reply(
+              "✅ Your verification is complete! Welcome to the hackathon!",
+            );
+
+            console.log("Verified: ", message.author.tag, ", email: ", email);
+
+            break;
+          }
+        }
+      } else {
+        await message.reply(
+          "❌ It seems like you are not a member of the Hack The Future server, or you have not recently reacted to the verification post. Please ensure you have joined the server using the link sent to your email, then try again by reacting to the verification post.",
+        );
+      }
     }
   } catch (error) {
     console.error("Error during verification:", error);
@@ -293,7 +335,6 @@ client.on("messageCreate", async (message) => {
 });
 
 // ------ reaction roles ------
-
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch(); // fetch if the reaction is partial
@@ -328,7 +369,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
   } else if (reaction.message.id === FIELD_MESSAGE_ID) {
     if (!member.roles.cache.has(PARTICIPANT_ROLE_ID)) {
       console.log(
-        `Tried to react to field post but is not a participant: ${user.tag}`,
+        `Tried to react ${emoji_} to field post but is not a participant: ${user.tag}`,
       );
       await reaction.users.remove(user.id);
       return;
@@ -364,3 +405,178 @@ client.on("messageReactionRemove", async (reaction, user) => {
     }
   }
 });
+
+// ------ handling team formation ------
+/*
+ async function logFormResponses() { // was used to manually get ID for 'Team type' question directly from form
+  try {
+    const authClient = await auth.getClient();
+
+    const formsResponse = await forms.forms.responses.list({
+      auth: authClient,
+      formId: FORM_ID,
+    });
+
+    const responses = formsResponse.data.responses || [];
+    console.log(JSON.stringify(responses, null, 2));
+  } catch (error) {
+    console.error("Error fetching form responses:", error);
+  }
+}
+
+logFormResponses();
+*/
+
+async function processFormSubmissions() {
+  try {
+    const authClient = await auth.getClient(); // authenticate with service account
+
+    const formsResponse = await sheets.spreadsheets.values.get({
+      auth: authClient,
+      spreadsheetId: FORM_SHEET_ID,
+      range: "Form Responses 1!A1:H",
+    });
+
+    const rows = formsResponse.data.values || [];
+    const requests = [];
+    const emails = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][7] === "TRUE") {
+        continue;
+      }
+      // columns C-G
+      for (let j = 2; j < 7; j++) {
+        if (rows[i][j]) {
+          emails.push(rows[i][j].trim().toLowerCase());
+        }
+      }
+      await markAsTaken(emails, i);
+      console.log(`Processed team #${i} formation:`, emails);
+
+      requests.push({
+        updateCells: {
+          range: {
+            sheetId: 1535622645, // Sheet1 ID
+            startRowIndex: i,
+            endRowIndex: i + 1,
+            startColumnIndex: 7, // column H (Processed?)
+            endColumnIndex: 8,
+          },
+          rows: [
+            {
+              values: [
+                {
+                  userEnteredValue: {
+                    stringValue: `TRUE`, // update processed status
+                  },
+                  userEnteredFormat: {
+                    horizontalAlignment: "CENTER", // maintain center alignment
+                  },
+                },
+              ],
+            },
+          ],
+          fields: "userEnteredValue,userEnteredFormat.horizontalAlignment", // update value & alignment
+        },
+      });
+    }
+
+    if (requests.length > 0) {
+      await sheets.spreadsheets.batchUpdate({
+        auth: authClient,
+        spreadsheetId: FORM_SHEET_ID,
+        resource: {
+          requests: requests,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error processing form submissions:", error);
+  }
+}
+
+async function markAsTaken(emails, teamCount) {
+  try {
+    const authClient = await auth.getClient(); // authenticate with service account
+
+    // fetch current data from spreadsheet
+    const sheetsResponse = await sheets.spreadsheets.values.get({
+      auth: authClient,
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Sheet1!A1:F", // adjust range as needed
+    });
+
+    const rows = sheetsResponse.data.values || [];
+    const requests = [];
+
+    // update status & format rows for "Taken" participants
+    for (let i = 1; i < rows.length; i++) {
+      // start from row 2
+      const participantEmail = rows[i][2]; // email in column 3
+      if (emails.includes(participantEmail)) {
+        // add a request to update the status column
+        requests.push({
+          updateCells: {
+            range: {
+              sheetId: 0, // data is in the first sheet
+              startRowIndex: i,
+              endRowIndex: i + 1,
+              startColumnIndex: 5, // column F (status)
+              endColumnIndex: 6,
+            },
+            rows: [
+              {
+                values: [
+                  {
+                    userEnteredValue: {
+                      stringValue: `Taken (team #${teamCount})`, // update status w/ team number
+                    },
+                  },
+                ],
+              },
+            ],
+            fields: "userEnteredValue", // only update the cell value
+          },
+        });
+
+        // add a request to format the row
+        requests.push({
+          repeatCell: {
+            range: {
+              sheetId: 0, // data is in the first sheet
+              startRowIndex: i,
+              endRowIndex: i + 1,
+              startColumnIndex: 0, // start from A
+              endColumnIndex: 6, // end at F
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: {
+                  // medium gray
+                  red: 0.8,
+                  green: 0.8,
+                  blue: 0.8,
+                },
+              },
+            },
+            fields: "userEnteredFormat.backgroundColor", // only update background color
+          },
+        });
+      }
+    }
+
+    // update spreadsheet with new team count, status, formatting
+    await sheets.spreadsheets.batchUpdate({
+      auth: authClient,
+      spreadsheetId: SPREADSHEET_ID,
+      resource: {
+        requests: requests,
+      },
+    });
+
+    console.log("Spreadsheet updated with team information, count, formatting");
+  } catch (error) {
+    console.error("Error updating spreadsheet with team information:", error);
+  }
+}
