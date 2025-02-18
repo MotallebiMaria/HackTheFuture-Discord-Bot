@@ -9,6 +9,7 @@ const fs = require('fs');
 const SPREADSHEET_ID = "1qg8FDjb5CQRXmxLGDqsNEpZgKuMbNs-Rl4WlABLl4kI";
 const FORM_ID = "1u_tpeaz8Z8W5sZaxwqoCu8bTbhkBRQUg82E7lXG90IE";
 const FORM_SHEET_ID = "1WJwyPkdE4Lif_eL4B4Vdp61hgLA3HlCjSIO8zOwuNTM";
+const REG_SHEET_ID = "1jUCs8eoS3ClNU75JQbdNXfru2zsrPUzYlaD1EHYDIfE";
 
 const keyFilePath = './googleServiceAccountKey.json';
 
@@ -48,7 +49,7 @@ const client = new Client({
 const GUILD_ID = "1329940953418563686";
 
 const VERIFICATION_CHANNEL_ID = "1329940953875874006";
-const VERIFICATION_MESSAGE_ID = "1340601101065523211";
+const VERIFICATION_MESSAGE_ID = "1341291256747135007";
 const PARTICIPANT_ROLE_ID = "1329953543708475443";
 
 const REACTION_ROLES_CHANNEL_ID = "1339733893993074759";
@@ -177,7 +178,17 @@ client.on("ready", async () => {
     console.error("Error fetching messages or adding reactions:", error);
   }
 
-  // start checking for form submissions every 30 seconds
+  // start checking for new accepted participants every 15 seconds
+  setInterval(async () => {
+    try {
+      await getNewParticipants();
+      console.log("Checked for new accepted participants.");
+    } catch (error) {
+      console.error("Error processing new accepted participants:", error);
+    }
+  }, 15 * 1000); // 15 s
+
+  // start checking for team form submissions every 15 seconds
   setInterval(async () => {
     try {
       await processFormSubmissions();
@@ -709,6 +720,55 @@ client.on("messageReactionRemove", async (reaction, user) => {
     }
   }
 });
+
+// ------ get new accepted participants ------
+async function getNewParticipants() {
+  try {
+    const authClient = await auth.getClient();
+
+    // fetch data from reg sheet
+    const regSheetsResponse = await sheets.spreadsheets.values.get({
+      auth: authClient,
+      spreadsheetId: REG_SHEET_ID,
+      range: "Form responses 1!A1:H", // email + first,last,preferred name + program
+    });
+
+    const rows = regSheetsResponse.data.values || [];
+    const requests = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const [isAdded, isAccepted, timestamp, email, firstName, prefName, lastName, program] = rows[i];
+
+      if (isAccepted === "Accepted" && isAdded !== "TRUE") {
+        // add to participant sheet
+        await sheets.spreadsheets.values.append({
+          auth: authClient,
+          spreadsheetId: SPREADSHEET_ID,
+          range: "Sheet1!A1:F",
+          valueInputOption: "RAW",
+          resource: {
+            values: [[firstName, lastName, email, "-", "", "Not Verified"]],
+          },
+        });
+
+        // mark as added in reg sheet
+        await sheets.spreadsheets.values.update({
+          auth: authClient,
+          spreadsheetId: REG_SHEET_ID,
+          range: `Form responses 1!A${i + 1}`,
+          valueInputOption: "RAW",
+          resource: {
+            values: [["TRUE"]],
+          },
+        });
+
+        console.log(`Added new participant: ${email}, ${firstName} ${lastName}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching and processing new participants:", error);
+  }
+}
 
 // ------ update strengths in spreadsheet ------
 async function updateStrengthsInSpreadsheet(discordID, strength, add) {
