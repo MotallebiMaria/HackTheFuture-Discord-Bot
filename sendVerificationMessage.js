@@ -34,9 +34,10 @@ client.once("ready", async () => {
         `- Need help? DM a <@&${MOD_ROLE_ID}> for assistance.\n\n` +
         "After you complete your verification, your server nickname will be changed to `{first_name} {last_name}`.\n\n" +
         `2️⃣ **Grab your roles** from <#${ROLES_CHANNEL_ID}>.\n\n` +
-        `3️⃣ **Indicate Your Expertise** in <#${STRENGTHS_CHANNEL_ID}> by reacting to the messages. Your selections will automatically update in our [participant spreadsheet](https://bit.ly/4hDsUl5), making it easier to find teammates with complementary skills.\n\n` +
+        `3️⃣ **Indicate Your Expertise** in <#${STRENGTHS_CHANNEL_ID}> by reacting to the messages. Your selections will automatically update in our **participant spreadsheet**, making it easier to find teammates with complementary skills.\n\n` +
+        "⭐ Here's the **participant spreadsheet**: https://bit.ly/4hDsUl5\n\n" +
         "4️⃣ **Find / Form a Team**\n" +
-        `If you don’t have a team yet, check out <#${TEAM_CHANNEL_ID}> to connect with other participants. You can also use the participant spreadsheet to find people with the skills you're looking for. You’re welcome to join an existing team or start your own—collaboration is key to success!\n` +
+        `If you don’t have a team yet, check out <#${TEAM_CHANNEL_ID}> to connect with other participants. You can also use the participant spreadsheet to find people with the skills you're looking for. You’re welcome to join an existing team or start your own.\n` +
         "📋 Once your team is finalized, make sure **only one person** fills out [this form](https://forms.gle/xjWEFYqs8LnSwQom9) to register your team.\n\n" +
         "We look forward to see what you’ll build. let’s make this an unforgettable hackathon!\n‌ ‌",
     );
