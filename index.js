@@ -208,20 +208,23 @@ async function getParticipants() {
   const sheetsResponse = await sheets.spreadsheets.values.get({
     auth: authClient,
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A1:F",
+    range: "Sheet1!A1:I",
   });
 
   const rows = sheetsResponse.data.values || [];
   const participants = [];
 
   for (let i = 1; i < rows.length; i++) {
-    const [firstName, lastName, email, discordID, strengths, status] = rows[i];
+    const [firstName, prefName, lastName, email, program, strengths, discordID, discordUser, status] = rows[i];
     participants.push({
       firstName,
+      prefName,
       lastName,
       email: email.toLowerCase().trim(),
-      discordID,
+      program,
       strengths,
+      discordID,
+      discordUser,
       status,
     });
   }
@@ -270,18 +273,18 @@ client.on("messageReactionAdd", async (reaction, user) => {
 });
 
 // ------ handle verification messages ------
-async function updateParticipant(participant, discordID) {
+async function updateParticipant(participant, discordID, discordUser) {
   const authClient = await auth.getClient();
 
   // find row of participant
   const sheetsResponse = await sheets.spreadsheets.values.get({
     auth: authClient,
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A1:F",
+    range: "Sheet1!A1:I",
   });
 
   const rows = sheetsResponse.data.values || [];
-  const rowIndex = rows.findIndex((row) => row[2] === participant.email);
+  const rowIndex = rows.findIndex((row) => row[3] === participant.email);
 
   if (rowIndex === -1) {
     throw new Error("Participant not found in spreadsheet.");
@@ -291,10 +294,21 @@ async function updateParticipant(participant, discordID) {
   await sheets.spreadsheets.values.update({
     auth: authClient,
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!D${rowIndex + 1}`, // column D
+    range: `Sheet1!G${rowIndex + 1}`, // column G
     valueInputOption: "RAW",
     resource: {
       values: [[discordID]],
+    },
+  });
+
+  // update participant's discordUser
+  await sheets.spreadsheets.values.update({
+    auth: authClient,
+    spreadsheetId: SPREADSHEET_ID,
+    range: `Sheet1!H${rowIndex + 1}`, // column H
+    valueInputOption: "RAW",
+    resource: {
+      values: [[discordUser]],
     },
   });
 
@@ -302,7 +316,7 @@ async function updateParticipant(participant, discordID) {
   await sheets.spreadsheets.values.update({
     auth: authClient,
     spreadsheetId: SPREADSHEET_ID,
-    range: `Sheet1!F${rowIndex + 1}`, // column F
+    range: `Sheet1!I${rowIndex + 1}`, // column I
     valueInputOption: "RAW",
     resource: {
       values: [["Available"]],
@@ -356,8 +370,9 @@ client.on("messageCreate", async (message) => {
         for (const participant of participants) {
           // find participant with matching email
           if (participant.email === email) {
+            const discordUser = message.author.tag;
             // update participant info in the spreadsheet
-            await updateParticipant(participant, discordID);
+            await updateParticipant(participant, discordID, discordUser);
 
             // construct new nickname
             const firstName = participant.firstName || "FirstName";
@@ -572,7 +587,7 @@ async function markAsTaken(emails, teamCount) {
     const sheetsResponse = await sheets.spreadsheets.values.get({
       auth: authClient,
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A1:F",
+      range: "Sheet1!A1:I",
     });
 
     const rows = sheetsResponse.data.values || [];
@@ -580,8 +595,7 @@ async function markAsTaken(emails, teamCount) {
 
     // update status & format rows for "Taken" participants
     for (let i = 1; i < rows.length; i++) {
-      // start from row 2
-      const participantEmail = rows[i][2]; // column C
+      const participantEmail = rows[i][3]; // column D
       if (emails.includes(participantEmail)) {
         // add a request to update the status column
         requests.push({
@@ -590,8 +604,8 @@ async function markAsTaken(emails, teamCount) {
               sheetId: 0, // data is in the first sheet
               startRowIndex: i,
               endRowIndex: i + 1,
-              startColumnIndex: 5, // column F (status)
-              endColumnIndex: 6,
+              startColumnIndex: 8, // column I (status)
+              endColumnIndex: 9,
             },
             rows: [
               {
@@ -616,7 +630,7 @@ async function markAsTaken(emails, teamCount) {
               startRowIndex: i,
               endRowIndex: i + 1,
               startColumnIndex: 0, // start from A
-              endColumnIndex: 6, // end at F
+              endColumnIndex: 9, // end at I
             },
             cell: {
               userEnteredFormat: {
@@ -744,10 +758,10 @@ async function getNewParticipants() {
         await sheets.spreadsheets.values.append({
           auth: authClient,
           spreadsheetId: SPREADSHEET_ID,
-          range: "Sheet1!A1:F",
+          range: "Sheet1!A1:I",
           valueInputOption: "RAW",
           resource: {
-            values: [[firstName, lastName, email, "-", "", "Not Verified"]],
+            values: [[firstName, prefName, lastName, email, program, "", "-", "-", "Not Verified"]],
           },
         });
 
@@ -779,18 +793,18 @@ async function updateStrengthsInSpreadsheet(discordID, strength, add) {
     const sheetsResponse = await sheets.spreadsheets.values.get({
       auth: authClient,
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A1:F",
+      range: "Sheet1!A1:I",
     });
 
     const rows = sheetsResponse.data.values || [];
-    const rowIndex = rows.findIndex((row) => row[3] === discordID); // column D
+    const rowIndex = rows.findIndex((row) => row[6] === discordID); // column G
 
     if (rowIndex === -1) {
       throw new Error("Participant not found in spreadsheet.");
     }
 
     // get current strengths
-    const currentStrengths = rows[rowIndex][4] || ""; // column E
+    const currentStrengths = rows[rowIndex][5] || ""; // column F
     let updatedStrengths = currentStrengths.split("\n").filter((s) => s !== "");
 
     if (add) {
@@ -807,7 +821,7 @@ async function updateStrengthsInSpreadsheet(discordID, strength, add) {
     await sheets.spreadsheets.values.update({
       auth: authClient,
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!E${rowIndex + 1}`,
+      range: `Sheet1!F${rowIndex + 1}`,
       valueInputOption: "RAW",
       resource: {
         values: [[updatedStrengths.join("\n")]],
