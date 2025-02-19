@@ -30,7 +30,7 @@ client.once("ready", async () => {
         "1. React with a ✅ below.\n" +
         "2. Our bot will privately DM you. Reply with the **email address** you registered with.\n" +
         "3. Once verified, you'll receive the \"HTF 2025 Participant\" role and access to exclusive channels.\n\n" +
-        "After you complete your verification, your server nickname will be changed to `{first_name} {last_name}`.\n\n" +
+        "After you complete your verification, your server nickname will be changed to `{pref_name} {last_name}`.\n\n" +
         `2️⃣ **Grab your roles** from <#${ROLES_CHANNEL_ID}>.\n\n` +
         `3️⃣ **Indicate Your Expertise** in <#${STRENGTHS_CHANNEL_ID}> by reacting to the messages. Your selections will automatically update in our **Participant Spreadsheet**, making it easier to find teammates with complementary skills.\n\n` +
         "⭐ Here's the **Participant Spreadsheet**: https://bit.ly/4hDsUl5\n\n" +
