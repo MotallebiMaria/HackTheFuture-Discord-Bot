@@ -3,6 +3,7 @@ module.exports = {
     FORM_ID: "1u_tpeaz8Z8W5sZaxwqoCu8bTbhkBRQUg82E7lXG90IE",
     FORM_SHEET_ID: "1WJwyPkdE4Lif_eL4B4Vdp61hgLA3HlCjSIO8zOwuNTM",
     REG_SHEET_ID: "1jUCs8eoS3ClNU75JQbdNXfru2zsrPUzYlaD1EHYDIfE",
+    FormResponses1_SHEET_ID: 1535622645,
     
     GUILD_ID: "1329940953418563686",
 

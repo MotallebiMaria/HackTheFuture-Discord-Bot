@@ -6,30 +6,31 @@ const {
     SHE_ROLE_ID, HE_ROLE_ID, THEY_ROLE_ID, ANY_ROLE_ID, ASK_ROLE_ID,
     YEAR1_ROLE_ID, YEAR2_ROLE_ID, YEAR3_ROLE_ID, YEAR4_ROLE_ID, YEAR5_ROLE_ID,
     CS_ROLE_ID, BUSINESS_ROLE_ID,
+    FormResponses1_SHEET_ID,
 } = require('./constants.js');
 const logger = require('./logger.js');
 
 // ------ emojis ------
-pronounRoles = {
+const pronounRoles = {
     "💛": SHE_ROLE_ID,
     "💚": HE_ROLE_ID,
     "💙": THEY_ROLE_ID,
     "🤷": ANY_ROLE_ID,
     "❓": ASK_ROLE_ID,
 };
-yearRoles = {
+const yearRoles = {
     "1️⃣": YEAR1_ROLE_ID,
     "2️⃣": YEAR2_ROLE_ID,
     "3️⃣": YEAR3_ROLE_ID,
     "4️⃣": YEAR4_ROLE_ID,
     "🧓": YEAR5_ROLE_ID,
 };
-fieldRoles = {
+const fieldRoles = {
     "💻": CS_ROLE_ID,
     "💼": BUSINESS_ROLE_ID,
 };
 
-techStrengths = {
+const techStrengths = {
     "👨‍💻": "Software Development / Engineering",
     "⚙️": "Backend Development",
     "🌐": "Frontend / Web Development",
@@ -42,7 +43,7 @@ techStrengths = {
     "📡": "Networking / Distributed Systems",
     "🖥️": "UI/UX Design",
 };
-businessStrengths = {
+const businessStrengths = {
     "💡": "Product Management",
     "📈": "Business Analysis / Strategy",
     "💼": "Entrepreneurship",
@@ -53,7 +54,7 @@ businessStrengths = {
     "🧑‍💼": "Consulting",
     "🔧": "Operations / Logistics",
 };
-hybridStrengths = {
+const hybridStrengths = {
     "🛠️": "Full-Stack Development",
     "🎨": "UI/UX / Design Thinking",
     "🔗": "Integrations / APIs",
@@ -375,7 +376,7 @@ client.on("messageCreate", async (message) => {
                             "✅ Your verification is complete! Welcome to the hackathon!",
                         );
 
-                        logger.info(`Verified: "${message.author.tag}", email: ", ${email}`);
+                        logger.info(`Verified: "${message.author.tag}", email: "${email}"`);
 
                         break;
                     }
@@ -497,7 +498,7 @@ async function processFormSubmissions() {
             requests.push({
                 updateCells: {
                     range: {
-                        sheetId: 1535622645, // Sheet1 ID
+                        sheetId: FormResponses1_SHEET_ID, // "Form responses 1" ID
                         startRowIndex: i,
                         endRowIndex: i + 1,
                         startColumnIndex: 8, // column I (Processed?)
@@ -717,9 +718,9 @@ async function getNewParticipants() {
 
             let markAccepted = false;
             let teammate = false;
-            if ((!status || !status.includes("Accepted")) && status !== "Duplicate") {
+            if ((!status || !status.toLowerCase().trim().includes("accepted")) && status.toLowerCase().trim() !== "duplicate") {
                 for (let j = 1; j < rows.length; j++) {
-                    if (rows[j][1] === "Accepted" && rows[j][10] && rows[j][10].includes(email)) {
+                    if (rows[j][1].toLowerCase().trim() === "accepted" && rows[j][10] && rows[j][10].includes(email)) {
                         markAccepted = true;
                         teammate = true;
                         logger.info(`Found ${email} teammate of ${rows[j][3]}.`);
@@ -732,7 +733,7 @@ async function getNewParticipants() {
 
             if (markAccepted) {
                 // add to participant sheet
-                await sheets.spreadsheets.values.append({
+                const appendResponse = await sheets.spreadsheets.values.append({
                     auth: authClient,
                     spreadsheetId: PARTICIPANT_SHEET_ID,
                     range: "Sheet1!A1:J",
@@ -741,6 +742,38 @@ async function getNewParticipants() {
                         values: [[firstName, prefName, lastName, email, program, "", "-", "-", "Not Verified", "-"]],
                     },
                 });
+
+                // get row ind of new row
+                const updatedRange = appendResponse.data.updates.updatedRange;
+                const newRowIndex = updatedRange.split("!")[1].split(":")[0].replace(/[^0-9]/g, "");
+                // logger.info("Updated Range:", updatedRange);
+                // logger.info("New Row Index (0-based):", newRowIndex);
+
+                // apply borders to all cells in new row
+                requests.push({
+                    repeatCell: {
+                        range: {
+                            sheetId: 0,
+                            startRowIndex: newRowIndex - 1,
+                            endRowIndex: newRowIndex,
+                            startColumnIndex: 0,
+                            endColumnIndex: 10, // cover columns A-J
+                        },
+                        cell: {
+                            userEnteredFormat: {
+                                borders: {
+                                    top: { style: "SOLID", width: 1, color: { red: 0, green: 0, blue: 0 } },
+                                    bottom: { style: "SOLID", width: 1, color: { red: 0, green: 0, blue: 0 } },
+                                    left: { style: "SOLID", width: 1, color: { red: 0, green: 0, blue: 0 } },
+                                    right: { style: "SOLID", width: 1, color: { red: 0, green: 0, blue: 0 } },
+                                    innerHorizontal: { style: "SOLID", width: 1, color: { red: 0, green: 0, blue: 0 } },
+                                    innerVertical: { style: "SOLID", width: 1, color: { red: 0, green: 0, blue: 0 } },
+                                },
+                            },
+                        },
+                        fields: "userEnteredFormat.borders",
+                    },
+                });                
 
                 // mark as added in reg sheet
                 await sheets.spreadsheets.values.update({
