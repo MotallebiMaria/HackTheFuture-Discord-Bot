@@ -155,7 +155,7 @@ client.on("ready", async () => {
         logger.error("Error fetching messages or adding reactions:", error);
     }
 
-    // start checking for new accepted participants every 15 seconds
+    // start checking for new accepted participants + team form submissions
     setInterval(async () => {
         try {
             await getNewParticipants();
@@ -163,10 +163,7 @@ client.on("ready", async () => {
         } catch (error) {
             logger.error("Error processing new accepted participants:", error);
         }
-    }, 15 * 1000); // 15 s
 
-    // start checking for team form submissions every 15 seconds
-    setInterval(async () => {
         try {
             await processFormSubmissions();
             logger.info("Checked for new form submissions.");
@@ -185,14 +182,14 @@ async function getParticipants() {
     const sheetsResponse = await sheets.spreadsheets.values.get({
         auth: authClient,
         spreadsheetId: PARTICIPANT_SHEET_ID,
-        range: "Sheet1!A1:I",
+        range: "Sheet1!A1:J",
     });
 
     const rows = sheetsResponse.data.values || [];
     const participants = [];
 
     for (let i = 1; i < rows.length; i++) {
-        const [firstName, prefName, lastName, email, program, strengths, discordID, discordUser, status] = rows[i];
+        const [firstName, prefName, lastName, email, program, strengths, discordID, discordUser, status, teamName] = rows[i];
         participants.push({
             firstName,
             prefName,
@@ -203,6 +200,7 @@ async function getParticipants() {
             discordID,
             discordUser,
             status,
+            teamName,
         });
     }
 
@@ -257,7 +255,7 @@ async function updateParticipant(participant, discordID, discordUser) {
     const sheetsResponse = await sheets.spreadsheets.values.get({
         auth: authClient,
         spreadsheetId: PARTICIPANT_SHEET_ID,
-        range: "Sheet1!A1:I",
+        range: "Sheet1!A1:J",
     });
 
     const rows = sheetsResponse.data.values || [];
@@ -472,7 +470,7 @@ async function processFormSubmissions() {
         const formsResponse = await sheets.spreadsheets.values.get({
             auth: authClient,
             spreadsheetId: FORM_SHEET_ID,
-            range: "Form Responses 1!A1:H",
+            range: "Form Responses 1!A1:I",
         });
 
         const rows = formsResponse.data.values || [];
@@ -480,7 +478,7 @@ async function processFormSubmissions() {
         const emails = [];
 
         for (let i = 1; i < rows.length; i++) {
-            if (rows[i][7] === "TRUE") {
+            if (rows[i][8] === "TRUE") { // column I
                 continue;
             }
             // columns C-G
@@ -489,8 +487,9 @@ async function processFormSubmissions() {
                     emails.push(rows[i][j].trim().toLowerCase());
                 }
             }
-            await markAsTaken(emails, i);
-            logger.info(`Processed team #${i} formation:`, emails);
+            let teamName = rows[i][7]; // column H
+            await markAsTaken(emails, i, teamName);
+            logger.info(`Processed team #${i - 1}: "${teamName}" formation:`, emails);
 
             requests.push({
                 updateCells: {
@@ -498,8 +497,8 @@ async function processFormSubmissions() {
                         sheetId: 1535622645, // Sheet1 ID
                         startRowIndex: i,
                         endRowIndex: i + 1,
-                        startColumnIndex: 7, // column H (Processed?)
-                        endColumnIndex: 8,
+                        startColumnIndex: 8, // column I (Processed?)
+                        endColumnIndex: 9,
                     },
                     rows: [
                         {
@@ -534,15 +533,15 @@ async function processFormSubmissions() {
     }
 }
 
-async function markAsTaken(emails, teamCount) {
+async function markAsTaken(emails, teamCount, teamName) {
     try {
         const authClient = await auth.getClient(); // authenticate with service account
 
-        // fetch current data from spreadsheet
+        // fetch current data from participant sheet
         const sheetsResponse = await sheets.spreadsheets.values.get({
             auth: authClient,
             spreadsheetId: PARTICIPANT_SHEET_ID,
-            range: "Sheet1!A1:I",
+            range: "Sheet1!A1:J",
         });
 
         const rows = sheetsResponse.data.values || [];
@@ -560,7 +559,7 @@ async function markAsTaken(emails, teamCount) {
                             startRowIndex: i,
                             endRowIndex: i + 1,
                             startColumnIndex: 8, // column I (status)
-                            endColumnIndex: 9,
+                            endColumnIndex: 10,
                         },
                         rows: [
                             {
@@ -570,6 +569,11 @@ async function markAsTaken(emails, teamCount) {
                                             stringValue: `Taken (team #${teamCount - 1})`, // update status w/ team number
                                         },
                                     },
+                                    {
+                                        userEnteredValue: {
+                                            stringValue: teamName,
+                                        }
+                                    }
                                 ],
                             },
                         ],
@@ -585,7 +589,7 @@ async function markAsTaken(emails, teamCount) {
                             startRowIndex: i,
                             endRowIndex: i + 1,
                             startColumnIndex: 0, // start from A
-                            endColumnIndex: 9, // end at I
+                            endColumnIndex: 10, // end at J
                         },
                         cell: {
                             userEnteredFormat: {
@@ -713,10 +717,10 @@ async function getNewParticipants() {
                 await sheets.spreadsheets.values.append({
                     auth: authClient,
                     spreadsheetId: PARTICIPANT_SHEET_ID,
-                    range: "Sheet1!A1:I",
+                    range: "Sheet1!A1:J",
                     valueInputOption: "RAW",
                     resource: {
-                        values: [[firstName, prefName, lastName, email, program, "", "-", "-", "Not Verified"]],
+                        values: [[firstName, prefName, lastName, email, program, "", "-", "-", "Not Verified", "-"]],
                     },
                 });
 
@@ -748,7 +752,7 @@ async function updateStrengthsInSpreadsheet(discordID, strength, add) {
         const sheetsResponse = await sheets.spreadsheets.values.get({
             auth: authClient,
             spreadsheetId: PARTICIPANT_SHEET_ID,
-            range: "Sheet1!A1:I",
+            range: "Sheet1!A1:J",
         });
 
         const rows = sheetsResponse.data.values || [];
