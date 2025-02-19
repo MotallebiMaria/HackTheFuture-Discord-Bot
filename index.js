@@ -703,16 +703,31 @@ async function getNewParticipants() {
         const regSheetsResponse = await sheets.spreadsheets.values.get({
             auth: authClient,
             spreadsheetId: REG_SHEET_ID,
-            range: "Form responses 1!A1:H", // email + first,last,preferred name + program
+            range: "Form responses 1!A1:K",
         });
 
         const rows = regSheetsResponse.data.values || [];
         const requests = [];
 
         for (let i = 1; i < rows.length; i++) {
-            const [isAdded, isAccepted, timestamp, email, firstName, prefName, lastName, program] = rows[i];
+            const [isAdded, status, timestamp, email, firstName, prefName, lastName, program] = rows[i];
 
-            if (isAccepted === "Accepted" && isAdded !== "TRUE") {
+            let markAccepted = false;
+            let teammate = false;
+            if ((!status || !status.includes("Accepted")) && status !== "Duplicate") {
+                for (let j = 1; j < rows.length; j++) {
+                    if (rows[j][1] === "Accepted" && rows[j][10] && rows[j][10].includes(email)) {
+                        markAccepted = true;
+                        teammate = true;
+                        logger.info(`Found ${email} teammate of ${rows[j][3]}.`);
+                        break;
+                    }
+                }
+            } else if (isAdded !== "TRUE") {
+                markAccepted = true;
+            }
+
+            if (markAccepted) {
                 // add to participant sheet
                 await sheets.spreadsheets.values.append({
                     auth: authClient,
@@ -734,6 +749,19 @@ async function getNewParticipants() {
                         values: [["TRUE"]],
                     },
                 });
+
+                // mark teammates as accepted but differently
+                if (teammate) {
+                    await sheets.spreadsheets.values.update({
+                        auth: authClient,
+                        spreadsheetId: REG_SHEET_ID,
+                        range: `Form responses 1!B${i + 1}`,
+                        valueInputOption: "RAW",
+                        resource: {
+                            values: [["Accepted (teammate)"]],
+                        },
+                    });
+                }
 
                 logger.info(`Added new participant: ${email}, ${firstName} ${lastName}`);
             }
