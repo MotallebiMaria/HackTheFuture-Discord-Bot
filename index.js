@@ -159,14 +159,14 @@ client.on("ready", async () => {
     setInterval(async () => {
         try {
             await getNewParticipants();
-            logger.info("Checked for new accepted participants.");
+            // logger.info("Checked for new accepted participants.");
         } catch (error) {
             logger.error("Error processing new accepted participants:", error);
         }
 
         try {
             await processFormSubmissions();
-            logger.info("Checked for new form submissions.");
+            // logger.info("Checked for new form submissions.");
         } catch (error) {
             logger.error("Error processing form submissions:", error);
         }
@@ -375,7 +375,7 @@ client.on("messageCreate", async (message) => {
                             "✅ Your verification is complete! Welcome to the hackathon!",
                         );
 
-                        logger.info(`Verified: ", message.author.tag, ", email: ", ${email}`);
+                        logger.info(`Verified: "${message.author.tag}", email: ", ${email}`);
 
                         break;
                     }
