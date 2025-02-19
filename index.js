@@ -302,7 +302,7 @@ async function updateParticipant(participant, discordID, discordUser) {
 client.on("messageCreate", async (message) => {
     if (message.guild != null || message.author.id == client.user.id) return;
 
-    const email = message.content.trim().toLowerCase();
+    const email = message.content.trim().toLowerCase(); // Ensure email is lowercase
     const discordID = message.author.id;
 
     logger.info(`${message.author.tag} said "${email}".`);
@@ -323,7 +323,7 @@ client.on("messageCreate", async (message) => {
             }
 
             // check if email exists & if it's verified
-            if (participant.email.toLowerCase() === email.toLowerCase()) {
+            if (participant.email.toLowerCase() === email.toLowerCase()) { // Ensure both emails are lowercase
                 // if email already verified, set the flag
                 if (participant.discordID !== "-") emailAlreadyVerified = true;
                 foundEmail = true;
@@ -343,13 +343,13 @@ client.on("messageCreate", async (message) => {
             if (member) {
                 for (const participant of participants) {
                     // find participant with matching email
-                    if (participant.email.toLowerCase() === email.toLowerCase()) {
+                    if (participant.email.toLowerCase().trim() === email.toLowerCase().trim()) { // Ensure both emails are lowercase
                         const discordUser = message.author.tag;
                         // update participant info in the spreadsheet
                         await updateParticipant(participant, discordID, discordUser);
 
                         // construct new nickname
-                        const firstName = participant.firstName || "FirstName";
+                        let firstName = participant.firstName || "FirstName";
                         if (participant.prefName) {
                             firstName = participant.prefName;
                         }
@@ -487,7 +487,7 @@ async function processFormSubmissions() {
             // columns C-G
             for (let j = 2; j < 7; j++) {
                 if (rows[i][j]) {
-                    emails.push(rows[i][j].trim().toLowerCase());
+                    emails.push(rows[i][j].trim().toLowerCase()); // Ensure emails are lowercase
                 }
             }
             let teamName = rows[i][7]; // column H
@@ -552,8 +552,8 @@ async function markAsTaken(emails, teamCount, teamName) {
 
         // update status & format rows for "Taken" participants
         for (let i = 1; i < rows.length; i++) {
-            const participantEmail = rows[i][3]; // column D
-            if (emails.includes(participantEmail)) {
+            const participantEmail = rows[i][3].toLowerCase().trim(); // Ensure email is lowercase
+            if (emails.includes(participantEmail)) { // Ensure emails are lowercase
                 // add a request to update the status column
                 requests.push({
                     updateCells: {
