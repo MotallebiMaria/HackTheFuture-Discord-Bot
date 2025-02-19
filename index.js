@@ -323,7 +323,7 @@ client.on("messageCreate", async (message) => {
             }
 
             // check if email exists & if it's verified
-            if (participant.email === email) {
+            if (participant.email.toLowerCase() === email.toLowerCase()) {
                 // if email already verified, set the flag
                 if (participant.discordID !== "-") emailAlreadyVerified = true;
                 foundEmail = true;
@@ -343,13 +343,16 @@ client.on("messageCreate", async (message) => {
             if (member) {
                 for (const participant of participants) {
                     // find participant with matching email
-                    if (participant.email === email) {
+                    if (participant.email.toLowerCase() === email.toLowerCase()) {
                         const discordUser = message.author.tag;
                         // update participant info in the spreadsheet
                         await updateParticipant(participant, discordID, discordUser);
 
                         // construct new nickname
                         const firstName = participant.firstName || "FirstName";
+                        if (participant.prefName) {
+                            firstName = participant.prefName;
+                        }
                         const lastName = participant.lastName || "LastName";
                         const newNickname = `${firstName} ${lastName}`;
 
