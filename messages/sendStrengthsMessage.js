@@ -1,13 +1,11 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+const { TEST_CHANNEL_ID, STRENGTHS_CHANNEL_ID } = require('../constants.js');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
-
-const TEST_CHANNEL_ID = "1340400920898437150";
-const STRENGTHS_CHANNEL_ID = "1340553298801066056";
 
 client.once("ready", async () => {
   const channel = client.channels.cache.get(STRENGTHS_CHANNEL_ID);

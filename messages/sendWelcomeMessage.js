@@ -1,17 +1,18 @@
 const { Client, GatewayIntentBits } = require("discord.js");
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+const {
+  TEST_CHANNEL_ID,
+  VERIFICATION_CHANNEL_ID,
+  REACTION_ROLES_CHANNEL_ID,
+  STRENGTHS_CHANNEL_ID,
+  TEAM_CHANNEL_ID,
+  MOD_ROLE_ID
+} = require('../constants.js');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
-
-const TEST_CHANNEL_ID = "1340400920898437150";
-const VERIFICATION_CHANNEL_ID = "1329940953875874006";
-const ROLES_CHANNEL_ID = "1339733893993074759";
-const STRENGTHS_CHANNEL_ID = "1340553298801066056";
-const TEAM_CHANNEL_ID = "1329942931246682133";
-const MOD_ROLE_ID = "1329941450569285692";
 
 client.once("ready", async () => {
     const channel = client.channels.cache.get(VERIFICATION_CHANNEL_ID);
@@ -31,7 +32,7 @@ client.once("ready", async () => {
         "2. Our bot will privately DM you. Reply with the **email address** you registered with.\n" +
         "3. Once verified, you'll receive the \"HTF 2025 Participant\" role and access to exclusive channels.\n\n" +
         "After you complete your verification, your server nickname will be changed to `{pref_name} {last_name}`.\n\n" +
-        `2️⃣ **Grab your roles** from <#${ROLES_CHANNEL_ID}>.\n\n` +
+        `2️⃣ **Grab your roles** from <#${REACTION_ROLES_CHANNEL_ID}>.\n\n` +
         `3️⃣ **Indicate Your Expertise** in <#${STRENGTHS_CHANNEL_ID}> by reacting to the messages. Your selections will automatically update in our **Participant Spreadsheet**, making it easier to find teammates with complementary skills.\n\n` +
         "⭐ Here's the **Participant Spreadsheet**: https://bit.ly/4hDsUl5\n\n" +
         "4️⃣ **Find / Form a Team**\n" +
