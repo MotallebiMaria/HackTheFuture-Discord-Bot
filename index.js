@@ -289,16 +289,18 @@ async function updateParticipant(participant, discordID, discordUser) {
         },
     });
 
-    // update participant's status
-    await sheets.spreadsheets.values.update({
-        auth: authClient,
-        spreadsheetId: PARTICIPANT_SHEET_ID,
-        range: `Sheet1!I${rowIndex + 1}`, // column I
-        valueInputOption: "RAW",
-        resource: {
-            values: [["Available"]],
-        },
-    });
+    // update participant's status (only if not taken)
+    if (rows[rowIndex][8] === "Not Verified") {
+        await sheets.spreadsheets.values.update({
+            auth: authClient,
+            spreadsheetId: PARTICIPANT_SHEET_ID,
+            range: `Sheet1!I${rowIndex + 1}`, // column I
+            valueInputOption: "RAW",
+            resource: {
+                values: [["Available"]],
+            },
+        });
+    }
 }
 
 client.on("messageCreate", async (message) => {
