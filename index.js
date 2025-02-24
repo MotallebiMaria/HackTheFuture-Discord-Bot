@@ -235,12 +235,14 @@ client.on("messageReactionAdd", async (reaction, user) => {
                     await user.send(
                         "🚫 You have already been verified. Please stop reacting to the verification message. For any other inquiries, please reach out to the moderators.",
                     );
+                    logger.info(`VERIFICATION REJECTED: user ${username} already verified.`);
                     return;
                 } else {
                     const dmChannel = await user.createDM();
                     await dmChannel.send(
                         "Thank you for starting the verification process! Please reply to this DM with your registered email address.",
                     );
+                    logger.info(`Sent initial DM to user ${username}.`);
                 }
             } catch (error) {
                 logger.error(`Error checking verification for ${user.tag}:`, error);
@@ -306,10 +308,11 @@ async function updateParticipant(participant, discordID, discordUser) {
 client.on("messageCreate", async (message) => {
     if (message.guild != null || message.author.id == client.user.id) return;
 
-    const email = message.content.trim().toLowerCase(); // Ensure email is lowercase
+    const email = message.content.trim().toLowerCase();
     const discordID = message.author.id;
+    const username = message.author.tag;
 
-    logger.info(`${message.author.tag} said "${email}".`);
+    logger.info(`${username} said "${email}".`);
 
     try {
         const participants = await getParticipants();
@@ -323,6 +326,7 @@ client.on("messageCreate", async (message) => {
                 await message.reply(
                     "🚫 You have already been verified. Please stop sending me messages. For any other inquiries, please reach out to the moderators.",
                 );
+                logger.info(`VERIFICATION REJECTED: user ${username} already verified.`);
                 return;
             }
 
@@ -336,10 +340,12 @@ client.on("messageCreate", async (message) => {
 
         if (emailAlreadyVerified) {
             await message.reply("❌ This email has already been verified.");
+            logger.info(`VERIFICATION REJECTED: ${email} already verified.`);
         } else if (!foundEmail) {
             await message.reply(
                 "❌ Email not found in the database. Please ensure you’re using the email you registered with.",
             );
+            logger.info(`VERIFICATION REJECTED: ${email} not found.`);
         } else {
             const guild = client.guilds.cache.get(GUILD_ID);
             const member = guild.members.cache.get(discordID);
@@ -348,9 +354,8 @@ client.on("messageCreate", async (message) => {
                 for (const participant of participants) {
                     // find participant with matching email
                     if (participant.email.toLowerCase().trim() === email.toLowerCase().trim()) { // Ensure both emails are lowercase
-                        const discordUser = message.author.tag;
                         // update participant info in the spreadsheet
-                        await updateParticipant(participant, discordID, discordUser);
+                        await updateParticipant(participant, discordID, username);
 
                         // construct new nickname
                         let firstName = participant.firstName || "FirstName";
@@ -379,7 +384,7 @@ client.on("messageCreate", async (message) => {
                             "✅ Your verification is complete! Welcome to the hackathon!",
                         );
 
-                        logger.info(`Verified: "${message.author.tag}", email: "${email}"`);
+                        logger.info(`Verified: "${username}", email: "${email}"`);
 
                         break;
                     }
@@ -388,10 +393,11 @@ client.on("messageCreate", async (message) => {
                 await message.reply(
                     "❌ It seems like you are not a member of the Hack The Future server, or you have not recently reacted to the verification post. Please ensure you have joined the server using the link sent to your email, then try again by reacting to the verification post.",
                 );
+                logger.info(`VERIFICATION REJECTED: user ${username} is not a member.`);
             }
         }
     } catch (error) {
-        logger.error("Error during verification:", error);
+        logger.error(`Error during verification for ${username}:`, error);
         await message.reply(
             "⚠️ An error occurred. Please contact a moderator for assistance.",
         );
@@ -496,7 +502,7 @@ async function processFormSubmissions() {
             }
             let teamName = rows[i][7]; // column H
             await markAsTaken(emails, i, teamName);
-            logger.info(`Processed team #${i - 1}: "${teamName}" formation:`, emails);
+            logger.info(`Processed team #${i}: "${teamName}" formation:`, emails);
 
             requests.push({
                 updateCells: {
@@ -573,7 +579,7 @@ async function markAsTaken(emails, teamCount, teamName) {
                                 values: [
                                     {
                                         userEnteredValue: {
-                                            stringValue: `Taken (team #${teamCount - 1})`, // update status w/ team number
+                                            stringValue: `Taken (team #${teamCount})`, // update status w/ team number
                                         },
                                     },
                                     {
