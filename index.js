@@ -225,6 +225,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
         if (member) {
             try {
                 const participants = await getParticipants();
+                const username = user.tag;
 
                 // check if discordID already in spreadsheet
                 const alreadyVerified = participants.some(
@@ -245,7 +246,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
                     logger.info(`Sent initial DM to user ${username}.`);
                 }
             } catch (error) {
-                logger.error(`Error checking verification for ${user.tag}:`, error);
+                logger.error(`Error checking verification for ${username}:`, error);
             }
         }
     }
