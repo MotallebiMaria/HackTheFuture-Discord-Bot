@@ -261,7 +261,7 @@ async function updateParticipant(participant, discordID, discordUser) {
     });
 
     const rows = sheetsResponse.data.values || [];
-    const rowIndex = rows.findIndex((row) => row[3] === participant.email);
+    const rowIndex = rows.findIndex((row) => row[3].toLowerCase().trim() === participant.email.toLowerCase().trim());
 
     if (rowIndex === -1) {
         throw new Error("Participant not found in spreadsheet.");
