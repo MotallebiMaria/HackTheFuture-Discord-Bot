@@ -91,6 +91,8 @@ const {
     Partials,
     heading,
     ActivityType,
+    ChannelType,
+    PermissionsBitField,
 } = require("discord.js");
 
 const client = new Client({
@@ -210,6 +212,44 @@ async function getParticipants() {
 }
 
 // ------ reaction to verification post ------
+async function sendPrivateNotification(user, message, client, guild) {
+    const channelName = `verification-${user.tag}`;
+
+    try {
+        // create temporary channel
+        const tempChannel = await guild.channels.create({
+            name: channelName,
+            type: ChannelType.GuildText,
+            permissionOverwrites: [
+                {
+                    id: guild.id, // deny access to everyone
+                    deny: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: user.id, // allow access to the user
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: client.user.id, // allow access to the bot
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                },
+            ],
+        });
+
+        // send notification message
+        await tempChannel.send({
+            content: message,
+        });
+
+        logger.info(`Sent private notification to ${user.tag} in temporary channel.`);
+
+        return tempChannel;
+    } catch (error) {
+        logger.error(`Error sending private notification to ${user.tag}:`, error);
+        return null;
+    }
+}
+
 client.on("messageReactionAdd", async (reaction, user) => {
     if (user.bot) return;
     if (reaction.partial) await reaction.fetch(); // fetch if the reaction is partial
@@ -222,10 +262,11 @@ client.on("messageReactionAdd", async (reaction, user) => {
         logger.info(`Reacted to verif post: ${user.tag}`);
 
         const member = reaction.message.guild.members.cache.get(user.id);
+        const username = user.tag;
+
         if (member) {
             try {
                 const participants = await getParticipants();
-                const username = user.tag;
 
                 // check if discordID already in spreadsheet
                 const alreadyVerified = participants.some(
@@ -246,7 +287,42 @@ client.on("messageReactionAdd", async (reaction, user) => {
                     logger.info(`Sent initial DM to user ${username}.`);
                 }
             } catch (error) {
-                logger.error(`Error checking verification for ${username}:`, error);
+                logger.error(`Error sending verif DM to ${username}:`, error);
+
+                const countdownTime = 5 * 60; // 5 mins
+
+                const privateChannel = await sendPrivateNotification(
+                    user,
+                    `${username}, I couldn't send you a DM.\n\n` +
+                    `You might have restricted DMs to friends only.\n` +
+                    `To fix this, go to User Settings -> Content & Socials -> allow DM from others in the server.\n` +
+                    `If the issue persists, please DM Maria.\n\n`,
+                    client,
+                    member.guild
+                ).catch(async () => {
+                    logger.error(`Error sending private notification to ${username}.`);
+                });
+
+                // start countdown before deleting channel
+                if (privateChannel) {
+                    let timeLeft = countdownTime;
+                    const countdownMessage = await privateChannel.send(
+                        `This channel will be deleted in ${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`
+                    );
+
+                    const countdownInterval = setInterval(async () => {
+                        timeLeft -= 1;
+            
+                        if (timeLeft > 0) {
+                            await countdownMessage.edit(
+                                `This channel will be deleted in ${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`
+                            );
+                        } else {
+                            clearInterval(countdownInterval);
+                            await privateChannel.delete().catch(err => logger.error(`Error deleting channel: ${err}`));
+                        }
+                    }, 1000); // update every second
+                }
             }
         }
     }
