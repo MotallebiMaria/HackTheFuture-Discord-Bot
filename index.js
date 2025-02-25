@@ -806,7 +806,7 @@ async function getNewParticipants() {
             let teammate = false;
             if ((!status || !status.toLowerCase().trim().includes("accepted")) && status.toLowerCase().trim() !== "duplicate") {
                 for (let j = 1; j < rows.length; j++) {
-                    if (rows[j][1].toLowerCase().trim() === "accepted" && rows[j][10] && rows[j][10].includes(email)) {
+                    if (rows[j][1].toLowerCase().trim() === "accepted" && rows[j][10] && rows[j][10].toLowercase().trim().includes(email.toLowerCase().trim())) {
                         markAccepted = true;
                         teammate = true;
                         logger.info(`Found ${email} teammate of ${rows[j][3]}.`);
