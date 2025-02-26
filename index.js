@@ -800,10 +800,12 @@ async function getNewParticipants() {
         const requests = [];
 
         for (let i = 1; i < rows.length; i++) {
-            const [isAdded, status, timestamp, email, firstName, prefName, lastName, program] = rows[i];
+            const [isAdded, status, timestamp, email, firstName, prefName, lastName, program, resume, hasTeam, teammates] = rows[i];
 
             let markAccepted = false;
             let teammate = false;
+
+            // check if new applicant's email is found in teammates of an already accepted applicant
             if ((!status || !status.toLowerCase().trim().includes("accepted")) && status.toLowerCase().trim() !== "duplicate") {
                 for (let j = 1; j < rows.length; j++) {
                     if (rows[j][1].toLowerCase().trim() === "accepted" && rows[j][10] && rows[j][10].toLowerCase().trim().includes(email.toLowerCase().trim())) {
@@ -811,6 +813,22 @@ async function getNewParticipants() {
                         teammate = true;
                         logger.info(`Found ${email} teammate of ${rows[j][3]}.`);
                         break;
+                    }
+                }
+
+                if (!markAccepted && hasTeam === "Yes" && teammates) {
+                    // check if new applicant has mentioned email of an already accepted applicant in their own teammates section
+                    const newApplicantTeammates = teammates.toLowerCase().trim();
+                    for (let j = 1; j < rows.length; j++) {
+                        if (rows[j][1].toLowerCase().trim().includes("accepted")) {
+                            const acceptedEmail = rows[j][3].toLowerCase().trim();
+                            if (newApplicantTeammates.includes(acceptedEmail)) {
+                                markAccepted = true;
+                                teammate = true;
+                                logger.info(`Found ${email} has accepted teammate ${rows[j][3]}.`);
+                                break;
+                            }
+                        }
                     }
                 }
             } else if (isAdded !== "TRUE") {
