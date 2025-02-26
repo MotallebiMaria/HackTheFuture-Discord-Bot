@@ -802,6 +802,8 @@ async function getNewParticipants() {
         for (let i = 1; i < rows.length; i++) {
             const [isAdded, status, timestamp, email, firstName, prefName, lastName, program, resume, hasTeam, teammates] = rows[i];
 
+            if (status.toLowerCase().trim() === "removed") continue;
+
             let markAccepted = false;
             let teammate = false;
 
