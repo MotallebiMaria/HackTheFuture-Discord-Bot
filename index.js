@@ -186,7 +186,7 @@ async function getParticipants() {
     const sheetsResponse = await sheets.spreadsheets.values.get({
         auth: authClient,
         spreadsheetId: PARTICIPANT_SHEET_ID,
-        range: "Sheet1!A1:J",
+        range: "Participants!A1:J",
     });
 
     const rows = sheetsResponse.data.values || [];
@@ -336,7 +336,7 @@ async function updateParticipant(participant, discordID, discordUser) {
     const sheetsResponse = await sheets.spreadsheets.values.get({
         auth: authClient,
         spreadsheetId: PARTICIPANT_SHEET_ID,
-        range: "Sheet1!A1:J",
+        range: "Participants!A1:J",
     });
 
     const rows = sheetsResponse.data.values || [];
@@ -350,7 +350,7 @@ async function updateParticipant(participant, discordID, discordUser) {
     await sheets.spreadsheets.values.update({
         auth: authClient,
         spreadsheetId: PARTICIPANT_SHEET_ID,
-        range: `Sheet1!G${rowIndex + 1}`, // column G
+        range: `Participants!G${rowIndex + 1}`, // column G
         valueInputOption: "RAW",
         resource: {
             values: [[discordID]],
@@ -361,7 +361,7 @@ async function updateParticipant(participant, discordID, discordUser) {
     await sheets.spreadsheets.values.update({
         auth: authClient,
         spreadsheetId: PARTICIPANT_SHEET_ID,
-        range: `Sheet1!H${rowIndex + 1}`, // column H
+        range: `Participants!H${rowIndex + 1}`, // column H
         valueInputOption: "RAW",
         resource: {
             values: [[discordUser]],
@@ -373,7 +373,7 @@ async function updateParticipant(participant, discordID, discordUser) {
         await sheets.spreadsheets.values.update({
             auth: authClient,
             spreadsheetId: PARTICIPANT_SHEET_ID,
-            range: `Sheet1!I${rowIndex + 1}`, // column I
+            range: `Participants!I${rowIndex + 1}`, // column I
             valueInputOption: "RAW",
             resource: {
                 values: [["Available"]],
@@ -631,7 +631,7 @@ async function markAsTaken(emails, teamCount, teamName) {
         const sheetsResponse = await sheets.spreadsheets.values.get({
             auth: authClient,
             spreadsheetId: PARTICIPANT_SHEET_ID,
-            range: "Sheet1!A1:J",
+            range: "Participants!A1:J",
         });
 
         const rows = sheetsResponse.data.values || [];
@@ -842,7 +842,7 @@ async function getNewParticipants() {
                 const appendResponse = await sheets.spreadsheets.values.append({
                     auth: authClient,
                     spreadsheetId: PARTICIPANT_SHEET_ID,
-                    range: "Sheet1!A1:J",
+                    range: "Participants!A1:J",
                     valueInputOption: "RAW",
                     resource: {
                         values: [[firstName, prefName, lastName, email, program, "", "-", "-", "Not Verified", "-"]],
@@ -922,7 +922,7 @@ async function updateStrengthsInSpreadsheet(discordID, strength, add) {
         const sheetsResponse = await sheets.spreadsheets.values.get({
             auth: authClient,
             spreadsheetId: PARTICIPANT_SHEET_ID,
-            range: "Sheet1!A1:J",
+            range: "Participants!A1:J",
         });
 
         const rows = sheetsResponse.data.values || [];
@@ -950,7 +950,7 @@ async function updateStrengthsInSpreadsheet(discordID, strength, add) {
         await sheets.spreadsheets.values.update({
             auth: authClient,
             spreadsheetId: PARTICIPANT_SHEET_ID,
-            range: `Sheet1!F${rowIndex + 1}`,
+            range: `Participants!F${rowIndex + 1}`,
             valueInputOption: "RAW",
             resource: {
                 values: [[updatedStrengths.join("\n")]],
